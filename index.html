@@ -417,7 +417,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #
             <span style="font-size:9px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:2px">Tri :</span>
             <button class="sort-btn active" id="sort-sites" onclick="setOpSort('sites')">Sites</button>
             <button class="sort-btn" id="sort-cap" onclick="setOpSort('cap')">Capacité</button>
-            <button class="sort-btn" id="sort-urgence" onclick="setOpSort('urgence')">&lt; 3 ans</button>
+            <button class="sort-btn" id="sort-urgence" onclick="setOpSort('urgence')" title="Trier par nb de contrats se terminant dans moins de 3 ans">⚠ Échéances</button>
           </div>
           <!-- Comparaison : info sélection -->
           <div id="compare-info" style="display:none;font-size:10px;color:#8e44ad;font-weight:600">Sélectionnez 2-3 opérateurs</div>
@@ -1402,8 +1402,9 @@ function renderOpGrid() {
       <div class="compare-check">${isSel?'✓':''}</div>
       ${urgBadge}
       ${logoHTML}
-      <div style="font-size:${opSortMode==='cap'?'16px':'20px'};font-weight:800;color:${c};margin:4px 0 1px">${opSortMode==='cap'?fmtKt(data.nom):data.sites.length}</div>
-      <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:600">${opSortMode==='cap'?'cap. nominale':'sites'}</div>
+      <div style="font-size:${opSortMode==='cap'?'16px':'20px'};font-weight:800;color:${opSortMode==='urgence'?'#dc2626':c};margin:4px 0 1px">${opSortMode==='cap'?fmtKt(data.nom):opSortMode==='urgence'?urgentN:data.sites.length}</div>
+      <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:600">${opSortMode==='cap'?'cap. nominale':opSortMode==='urgence'?'contrats < 3 ans':'sites'}</div>
+      ${opSortMode==='urgence'?`<div style="font-size:8px;color:#94a3b8;margin-top:1px">${data.sites.length} site${data.sites.length>1?'s':''} au total</div>`:''}
       <div style="display:flex;gap:2px;margin-top:6px;flex-wrap:wrap">${terrDots}</div>
       ${dblBar}
     </div>`;
