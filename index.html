@@ -921,7 +921,7 @@ function siteCardHTML(s, maxCap, mapCtx) {
   const oc = opColor(s.operateur);
   const missingClass = noData ? ' missing-data' : '';
   const missingTag = noData ? '<span class="tag tag-missing">⚠ Données manquantes</span>' : '';
-  const clickAttr = (mapCtx && s.lat) ? `onclick="selectOnMap('${s.code_sinoe}','${mapCtx}')" title="Localiser sur la carte"` : '';
+  const clickAttr = (mapCtx && s.lat) ? `onclick="selectOnMap(${s.id},'${mapCtx}')" title="Localiser sur la carte"` : '';
   const pointerStyle = (mapCtx && s.lat) ? 'cursor:pointer' : '';
   const fcc = echeanceColor(s);
   const fcBadge = s.fin_contrat ? `<span class="tag" style="background:${fcc}18;color:${fcc};border:1px solid ${fcc}30">${s.fin_contrat}</span>` : '';
@@ -1029,9 +1029,8 @@ function marcheClickOp(op) {
 function top10Click(op) { marcheClickOp(op); }
 
 // ── Stockage centralisé des markers ───────────────────────
-// _mk[ctx][code_sinoe] → lookup click-to-select
-// _ml[ctx]             → tableau complet pour suppression fiable
-//   (fix: code_sinoe vide sur plusieurs sites écrasait les entrées _mk)
+// _mk[ctx][site.id] → lookup click-to-select (id toujours unique)
+// _ml[ctx]          → tableau complet pour suppression fiable
 const _mk = {}, _ml = {};
 function storeMarker(ctx, code, marker) {
   if (!_mk[ctx]) _mk[ctx] = {};
@@ -1196,7 +1195,7 @@ function applyGlobalFilter() {
   const maxCap = Math.max(...filtered.map(s => s.cap_nominale || 0));
   filtered.forEach(s => {
     const m = makeGlobalMarker(s);
-    if (m) { m.addTo(mapGlobal); globalMarkers.push(m); storeMarker('global', s.code_sinoe, m); }
+    if (m) { m.addTo(mapGlobal); globalMarkers.push(m); storeMarker('global', s.id, m); }
   });
   const el = document.getElementById('g-count');
   if (el) el.textContent = filtered.length < SITES.length ? `${filtered.length} site${filtered.length>1?'s':''} affichés` : '';
@@ -1304,7 +1303,7 @@ function initOperateurs() {
 }
 function showAllOp() {
   clearMarkers('op', mapOp); opMarkers=[];
-  SITES.forEach(s=>{const m=makeGlobalMarker(s);if(m){m.addTo(mapOp);opMarkers.push(m);storeMarker('op',s.code_sinoe,m);}});
+  SITES.forEach(s=>{const m=makeGlobalMarker(s);if(m){m.addTo(mapOp);opMarkers.push(m);storeMarker('op',s.id,m);}});
   mapOp.setView([46.5,2.5],6);
   const leg=document.getElementById('op-map-legend'); if(leg) leg.style.display='none';
   // Sidebar : montre la grille, cache le détail
@@ -1327,7 +1326,7 @@ function filterByOp(op) {
   const c = opColor(op);
 
   // Markers colorés par fin de contrat
-  filtered.forEach(s=>{const m=makeUrgenceMarker(s,3);if(m){m.addTo(mapOp);opMarkers.push(m);storeMarker('op',s.code_sinoe,m);}});
+  filtered.forEach(s=>{const m=makeUrgenceMarker(s,3);if(m){m.addTo(mapOp);opMarkers.push(m);storeMarker('op',s.id,m);}});
   const coords = filtered.filter(s=>s.lat).map(s=>[s.lat,s.lon]);
   if(coords.length>1) mapOp.fitBounds(coords,{padding:[50,50]});
   else if(coords.length===1) mapOp.setView(coords[0],9);
@@ -1760,7 +1759,7 @@ function applyTerrFilter(t) {
   const ts = getTerrFiltered(t);
   const allTs = SITES.filter(s=>s.territoire===t);
   const maxCap = Math.max(...allTs.map(s=>s.cap_nominale||0));
-  ts.forEach(s=>{ const mk=makeGlobalMarker(s,2.8); if(mk){mk.addTo(m);storeMarker(t,s.code_sinoe,mk);} });
+  ts.forEach(s=>{ const mk=makeGlobalMarker(s,2.8); if(mk){mk.addTo(m);storeMarker(t,s.id,mk);} });
   const lt = document.getElementById(`list-title-${t}`);
   if(lt) lt.textContent = `Sites (${ts.length})`;
   const cnt = document.getElementById(`fcount-${t}`);
@@ -1776,7 +1775,7 @@ function filterTerrByOp(t, op) {
   const filtered = getTerrFiltered(t);
   const ts = filtered.filter(s=>s.operateur===op);
   const maxCap = Math.max(...allTs.map(s=>s.cap_nominale||0));
-  ts.forEach(s=>{ const mk=makeGlobalMarker(s,2.8); if(mk){mk.addTo(m);storeMarker(t,s.code_sinoe,mk);} });
+  ts.forEach(s=>{ const mk=makeGlobalMarker(s,2.8); if(mk){mk.addTo(m);storeMarker(t,s.id,mk);} });
   const coords = ts.filter(s=>s.lat).map(s=>[s.lat,s.lon]);
   if(coords.length>1) m.fitBounds(coords,{padding:[40,40]});
   else if(coords.length===1) m.setView(coords[0],9);
@@ -1833,7 +1832,7 @@ function initTerritoire(t) {
   const ts = terrSites;
   const maxCap = Math.max(...ts.map(s=>s.cap_nominale||0));
   const coords=[];
-  ts.forEach(s=>{const mk=makeGlobalMarker(s,2.8);if(mk){mk.addTo(m);storeMarker(t,s.code_sinoe,mk);if(s.lat)coords.push([s.lat,s.lon]);}});
+  ts.forEach(s=>{const mk=makeGlobalMarker(s,2.8);if(mk){mk.addTo(m);storeMarker(t,s.id,mk);if(s.lat)coords.push([s.lat,s.lon]);}});
   if(coords.length>1) m.fitBounds(coords,{padding:[40,40]});
   else if(coords.length===1) m.setView(coords[0],9);
 
@@ -1894,7 +1893,7 @@ function applyPipelineFilter() {
   const filtered = getPipelineFiltered();
   renderPipelineKPIs(filtered);
   const maxCap = Math.max(...filtered.map(s=>s.cap_nominale||0));
-  filtered.forEach(s => { const m=makeUrgenceMarker(s); if(m){m.addTo(mapPipeline);storeMarker('pipeline',s.code_sinoe,m);} });
+  filtered.forEach(s => { const m=makeUrgenceMarker(s); if(m){m.addTo(mapPipeline);storeMarker('pipeline',s.id,m);} });
   const urgOrder = {'< 3 ans':0,'Entre 3 et 5 ans':1,'6 ans et +':2,'':3};
   document.getElementById('pip-list-title').textContent = `Sites (${filtered.length}) — par urgence`;
   document.getElementById('list-pipeline').innerHTML =
