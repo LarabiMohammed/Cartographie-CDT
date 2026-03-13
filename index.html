@@ -2288,7 +2288,7 @@ function applyPipelineFilter() {
       const fcBadge=s.fin_contrat?`<span class="tag" style="background:${fcc}18;color:${fcc};border:1px solid ${fcc}30">${s.fin_contrat}</span>`:'';
       const yrBadge=s.annee_fin_contrat?`<span class="tag" style="background:#f1f5f9;color:#475569">${s.annee_fin_contrat}</span>`:'';
       const stBadge=s.statut_ao?`<span class="tag" style="background:${statutColor(s.statut_ao)}18;color:${statutColor(s.statut_ao)}">${s.statut_ao}</span>`:'';
-      const click=s.lat?`onclick="selectOnMap('${s.code_sinoe}','pipeline')" title="Localiser sur la carte"` :'';
+      const click=s.lat?`onclick="selectOnMap(${s.id},'pipeline')" title="Localiser sur la carte"` :'';
       return `<div class="site-card" style="${s.lat?'cursor:pointer':''}" ${click}>
         <div class="site-card-name">${s.nom}</div>
         <div class="site-card-meta">
