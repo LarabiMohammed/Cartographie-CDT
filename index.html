@@ -1049,10 +1049,12 @@ function selectOnMap(code, ctx) {
   const map = ctx==='global'?mapGlobal:ctx==='op'?mapOp:ctx==='pipeline'?mapPipeline:terrMaps[ctx];
   const marker = _mk[ctx]?.[code];
   if (!map || !marker) return;
+  map.once('moveend', () => {
+    marker.openPopup();
+    map.panBy([0, -80], { animate: true });
+  });
   map.setView(marker.getLatLng(), Math.max(map.getZoom(), 10), { animate: true });
-  marker.openPopup();
   // Pulse visuel
-  const orig = marker.options.radius;
   marker.setStyle({ weight: 4.5, color: '#f59e0b' });
   setTimeout(() => marker.setStyle({ weight: marker.options.weight, color: marker.options.color }), 1200);
 }
