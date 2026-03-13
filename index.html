@@ -1477,8 +1477,11 @@ function showAllOp() {
   document.getElementById('op-detail').style.display = 'none';
   document.getElementById('op-detail').innerHTML = '';
   // Panel droit caché
-  document.getElementById('op-list-panel').style.display = 'none';
+  const p = document.getElementById('op-list-panel');
+  p.style.display = 'none';
+  p.style.width = ''; p.style.minWidth = '';
   document.getElementById('list-operateurs').innerHTML = '';
+  mapOp?.invalidateSize();
   // Header : état par défaut
   document.getElementById('op-hdr-default').style.display = '';
   document.getElementById('op-hdr-selected').style.display = 'none';
@@ -1638,7 +1641,12 @@ function showCompareView() {
     </td>${cells}</tr>`;
   }).join('');
 
-  document.getElementById('op-list-panel').style.display = 'flex';
+  const panelW = 140 + compareSelected.length * 160;
+  const panel = document.getElementById('op-list-panel');
+  panel.style.display = 'flex';
+  panel.style.width = panelW + 'px';
+  panel.style.minWidth = panelW + 'px';
+  mapOp?.invalidateSize();
   document.getElementById('op-panel-title').textContent = `Comparaison`;
   document.getElementById('list-operateurs').innerHTML = `
     <div style="padding:10px;overflow-x:auto">
@@ -1780,7 +1788,10 @@ function filterByOp(op) {
   document.getElementById('list-operateurs').innerHTML = [...filtered]
     .sort((a,b)=>(urgOrder[a.fin_contrat||'']??3)-(urgOrder[b.fin_contrat||'']??3)||(b.cap_nominale||0)-(a.cap_nominale||0))
     .map(s=>siteCardHTML(s,maxCap,'op')).join('');
-  document.getElementById('op-list-panel').style.display = 'flex';
+  const fp = document.getElementById('op-list-panel');
+  fp.style.width = ''; fp.style.minWidth = '';
+  fp.style.display = 'flex';
+  mapOp?.invalidateSize();
 }
 
 // ── Point 3: Marché ────────────────────────────────────────
