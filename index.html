@@ -126,9 +126,9 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #
 /* ── TERRITOIRE ── */
 .terr-layout { flex: 1; display: flex; overflow: hidden; }
 .terr-left { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.terr-right { width: 285px; background: #fff; border-left: 1px solid #e2e8f0; overflow-y: auto; display: flex; flex-direction: column; }
+.terr-right { width: 285px; background: #fff; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; overflow: hidden; }
 .mini-chart { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
-.terr-op-chart { border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; }
+.terr-op-chart { border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; max-height: 42%; overflow-y: auto; flex-shrink: 0; }
 .mini-chart-title { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; font-weight: 600; }
 .chart-row { margin-bottom: 8px; }
 .chart-row-label { font-size: 11px; color: #334155; margin-bottom: 3px; display: flex; justify-content: space-between; }
