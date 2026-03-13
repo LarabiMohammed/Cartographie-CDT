@@ -221,6 +221,34 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #
 ::-webkit-scrollbar-track { background: #f8fafc; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
+/* ── OP IMPROVEMENTS ── */
+/* Amél. 1 — Tri */
+.sort-btn { padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; color: #64748b; font-family: inherit; transition: all .15s; }
+.sort-btn.active { background: #00a3e0; color: #fff; border-color: #00a3e0; }
+.sort-btn:hover:not(.active) { background: #f1f5f9; color: #334155; }
+/* Amél. 5 — Comparateur */
+.btn-compare { padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 600; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; color: #64748b; font-family: inherit; transition: all .15s; white-space: nowrap; }
+.btn-compare.active { background: #8e44ad; color: #fff; border-color: #8e44ad; }
+.btn-compare:hover:not(.active) { background: #f5f3ff; border-color: #c4b5fd; color: #6d28d9; }
+.op-card.compare-selected { border-color: #8e44ad !important; box-shadow: 0 0 0 2px rgba(142,68,173,.2) !important; }
+.op-card .compare-check { display: none; position: absolute; top: 5px; left: 5px; width: 16px; height: 16px; border-radius: 4px; border: 2px solid #cbd5e1; background: #fff; }
+.compare-mode .op-card .compare-check { display: flex; align-items: center; justify-content: center; }
+.op-card.compare-selected .compare-check { background: #8e44ad; border-color: #8e44ad; color: #fff; font-size: 10px; font-weight: 900; }
+/* Amél. 6 — Toggle vue */
+.view-toggle-btn { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 5px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; color: #94a3b8; transition: all .15s; flex-shrink: 0; }
+.view-toggle-btn.active { background: #eff9ff; border-color: #00a3e0; color: #00a3e0; }
+.view-toggle-btn:hover:not(.active) { background: #f8fafc; color: #475569; }
+/* Vue liste */
+.op-list-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 11.5px; transition: background .1s; }
+.op-list-row:hover { background: #f8fafc; }
+.op-list-color { width: 4px; height: 32px; border-radius: 2px; flex-shrink: 0; }
+.op-list-name { flex: 1; font-weight: 600; color: #0f172a; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.op-list-val { width: 45px; text-align: right; color: #475569; }
+.op-list-badge { padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 700; }
+/* Double barre cap */
+.op-dbl-bar-wrap { position: relative; height: 4px; background: #e2e8f0; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.op-dbl-bar-nom { position: absolute; top: 0; left: 0; height: 100%; border-radius: 2px; }
+
 /* ── PRINT ── */
 @media print {
   #sidebar, .filter-bar, .btn-print, .terr-right, .info-panel { display: none !important; }
@@ -355,17 +383,48 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #
       </button>
     </div>
   </div>
+  <!-- KPIs globaux -->
+  <div id="op-kpi-top" style="display:flex;gap:8px;padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-shrink:0;flex-wrap:wrap"></div>
   <!-- 3-col layout: sidebar | map | right panel -->
   <div style="flex:1;display:flex;overflow:hidden;">
     <!-- Sidebar gauche -->
     <div class="op-sidebar" id="op-sidebar">
       <!-- Grille des opérateurs (état par défaut) -->
       <div id="op-grid-wrap" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-        <div class="op-sidebar-header">
-          <span id="op-grid-count"></span>
-          <span>Opérateurs</span>
+        <div class="op-sidebar-header" style="flex-direction:column;align-items:flex-start;gap:6px;padding:8px 12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+            <span style="display:flex;align-items:center;gap:6px">
+              <span id="op-grid-count" style="font-size:13px;font-weight:800;color:#0f172a"></span>
+              <span>Opérateurs</span>
+            </span>
+            <span style="display:flex;gap:4px;align-items:center">
+              <!-- Toggle vue grille/liste -->
+              <button class="view-toggle-btn active" id="btn-view-grid" title="Vue grille" onclick="setOpView('grid')">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+              </button>
+              <button class="view-toggle-btn" id="btn-view-list" title="Vue liste" onclick="setOpView('list')">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg>
+              </button>
+              <!-- Comparateur -->
+              <button class="btn-compare" id="btn-compare" onclick="toggleCompareMode()">Comparer</button>
+            </span>
+          </div>
+          <!-- Boutons de tri -->
+          <div style="display:flex;gap:4px;align-items:center">
+            <span style="font-size:9px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:2px">Tri :</span>
+            <button class="sort-btn active" id="sort-sites" onclick="setOpSort('sites')">Sites</button>
+            <button class="sort-btn" id="sort-cap" onclick="setOpSort('cap')">Capacité</button>
+            <button class="sort-btn" id="sort-urgence" onclick="setOpSort('urgence')">Urgence</button>
+          </div>
+          <!-- Comparaison : info sélection -->
+          <div id="compare-info" style="display:none;font-size:10px;color:#8e44ad;font-weight:600">Sélectionnez 2-3 opérateurs</div>
         </div>
         <div class="op-grid-inner" id="op-grid"></div>
+        <div id="op-list-view" style="display:none;flex:1;overflow-y:auto;"></div>
+        <!-- Bouton quitter comparaison -->
+        <div id="compare-actions" style="display:none;padding:8px 10px;border-top:1px solid #e2e8f0;background:#faf5ff;flex-shrink:0">
+          <button onclick="exitCompareMode()" style="width:100%;padding:6px;background:#8e44ad;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Quitter la comparaison</button>
+        </div>
       </div>
       <!-- Détail opérateur (état sélectionné) -->
       <div id="op-detail" style="display:none;flex-direction:column;flex:1;overflow:hidden;"></div>
@@ -1272,16 +1331,15 @@ const FC_LEGEND_HTML =
   +'<div class="legend-row"><div class="legend-dot" style="background:#94a3b8;border-color:#94a3b8"></div>Non renseigné</div>'
   +'<div class="legend-hint">&#9679; taille = capacité nominale</div>';
 
-function initOperateurs() {
-  if (mapOp) return;
-  mapOp = L.map('map-operateurs').setView([46.5,2.5],6);
-  L.tileLayer(TILES,{attribution:TILES_ATTR,maxZoom:19}).addTo(mapOp);
-  // Légende updateable
-  const opLegCtrl = L.control({position:'bottomleft'});
-  opLegCtrl.onAdd = () => {
-    const d = L.DomUtil.create('div','map-legend'); d.id='op-map-legend'; d.style.display='none'; return d;
-  };
-  opLegCtrl.addTo(mapOp);
+// ── Variables état page opérateurs ──
+let opSortMode = 'sites';   // 'sites' | 'cap' | 'urgence'
+let opViewMode = 'grid';    // 'grid' | 'list'
+let compareMode = false;
+let compareSelected = [];   // opérateurs sélectionnés en mode comparaison
+let _opMapCache = null;     // cache des données agrégées par opérateur
+
+function buildOpMap() {
+  if (_opMapCache) return _opMapCache;
   const opMap = {};
   SITES.forEach(s => {
     if (!s.operateur) return;
@@ -1290,9 +1348,32 @@ function initOperateurs() {
     opMap[s.operateur].nom += s.cap_nominale||0;
     opMap[s.operateur].reg += s.cap_reglementaire||0;
   });
-  const opList = Object.entries(opMap).sort((a,b)=>b[1].sites.length-a[1].sites.length);
-  const maxSites = opList[0]?.[1].sites.length || 1;
+  _opMapCache = opMap;
+  return opMap;
+}
+
+function getSortedOpList(opMap, sortMode) {
+  const entries = Object.entries(opMap);
+  if (sortMode === 'cap') {
+    return entries.sort((a,b)=>b[1].nom-a[1].nom);
+  } else if (sortMode === 'urgence') {
+    return entries.sort((a,b)=>{
+      const ua = a[1].sites.filter(s=>s.fin_contrat==='< 3 ans').length;
+      const ub = b[1].sites.filter(s=>s.fin_contrat==='< 3 ans').length;
+      return ub-ua;
+    });
+  }
+  return entries.sort((a,b)=>b[1].sites.length-a[1].sites.length);
+}
+
+function renderOpGrid() {
+  const opMap = buildOpMap();
+  const opList = getSortedOpList(opMap, opSortMode);
+  const maxSites = Math.max(...opList.map(([,d])=>d.sites.length)) || 1;
+  const maxCap   = Math.max(...opList.map(([,d])=>d.nom)) || 1;
   document.getElementById('op-grid-count').textContent = opList.length;
+
+  // Vue grille
   document.getElementById('op-grid').innerHTML = opList.map(([op,data]) => {
     const c = opColor(op);
     const logo = opLogoFile(op);
@@ -1305,16 +1386,80 @@ function initOperateurs() {
     const terrDots = [...new Set(data.sites.map(s=>s.territoire))].map(t=>
       `<span style="width:7px;height:7px;border-radius:50%;background:${TERR_COLORS[t]||'#94a3b8'};display:inline-block" title="${t}"></span>`
     ).join('');
-    const pct = (data.sites.length/maxSites*100).toFixed(0);
-    return `<div class="op-card" data-op="${enc}" onclick="filterByOp(decodeURIComponent(this.dataset.op))" style="border-top:3px solid ${c}">
+    // Double barre cap nom / régl (amélioration 2)
+    const nomPct = data.reg > 0 ? Math.min((data.nom/data.reg)*100,150).toFixed(0) : 100;
+    const barColor = data.nom >= data.reg ? '#059669' : '#dc2626';
+    const dblBar = `
+      <div class="op-dbl-bar-wrap">
+        <div class="op-dbl-bar-nom" style="width:${nomPct}%;background:${barColor}"></div>
+      </div>
+      <div style="font-size:8px;color:#94a3b8;margin-top:2px">${fmtKt(data.nom)} nom / ${fmtKt(data.reg)} régl</div>`;
+    const isSel = compareSelected.includes(op);
+    return `<div class="op-card${isSel?' compare-selected':''}" data-op="${enc}" onclick="opCardClick(decodeURIComponent(this.dataset.op))" style="border-top:3px solid ${c}">
+      <div class="compare-check">${isSel?'✓':''}</div>
       ${urgBadge}
       ${logoHTML}
       <div style="font-size:20px;font-weight:800;color:${c};margin:4px 0 1px">${data.sites.length}</div>
       <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:600">sites</div>
       <div style="display:flex;gap:2px;margin-top:6px;flex-wrap:wrap">${terrDots}</div>
-      <div class="op-cap-bar" style="margin-top:6px"><div class="op-cap-bar-fill" style="width:${pct}%;background:${c}"></div></div>
+      ${dblBar}
     </div>`;
   }).join('');
+  if (compareMode) {
+    document.getElementById('op-grid').closest('#op-grid-wrap').classList.add('compare-mode');
+  } else {
+    document.getElementById('op-grid').closest('#op-grid-wrap').classList.remove('compare-mode');
+  }
+
+  // Vue liste
+  document.getElementById('op-list-view').innerHTML = opList.map(([op,data]) => {
+    const c = opColor(op);
+    const enc = encodeURIComponent(op);
+    const urgentN = data.sites.filter(s=>s.fin_contrat==='< 3 ans').length;
+    const delta = data.nom - data.reg;
+    const deltaColor = delta >= 0 ? '#059669' : '#dc2626';
+    return `<div class="op-list-row" data-op="${enc}" onclick="opCardClick(decodeURIComponent(this.dataset.op))">
+      <div class="op-list-color" style="background:${c}"></div>
+      <div class="op-list-name">${op}</div>
+      <div class="op-list-val" style="font-weight:700;color:${c}">${data.sites.length}</div>
+      <div class="op-list-val" style="font-size:10px">${fmtKt(data.nom)}</div>
+      <div class="op-list-val" style="font-size:10px">${fmtKt(data.reg)}</div>
+      <div class="op-list-val" style="font-size:10px;color:${deltaColor};font-weight:700">${delta>=0?'+':''}${fmtKt(delta)}</div>
+      ${urgentN ? `<span class="op-list-badge" style="background:#fef2f2;color:#dc2626">${urgentN}!</span>` : '<span style="width:28px"></span>'}
+    </div>`;
+  }).join('');
+}
+
+function initOperateurs() {
+  if (mapOp) return;
+  mapOp = L.map('map-operateurs').setView([46.5,2.5],6);
+  L.tileLayer(TILES,{attribution:TILES_ATTR,maxZoom:19}).addTo(mapOp);
+  // Légende updateable
+  const opLegCtrl = L.control({position:'bottomleft'});
+  opLegCtrl.onAdd = () => {
+    const d = L.DomUtil.create('div','map-legend'); d.id='op-map-legend'; d.style.display='none'; return d;
+  };
+  opLegCtrl.addTo(mapOp);
+
+  // KPIs globaux (amélioration 3) — rendus une seule fois
+  const totalNom = SITES.reduce((a,s)=>a+(s.cap_nominale||0),0);
+  const totalReg = SITES.reduce((a,s)=>a+(s.cap_reglementaire||0),0);
+  const nbOp = new Set(SITES.filter(s=>s.operateur).map(s=>s.operateur)).size;
+  const nbUrgent = SITES.filter(s=>s.fin_contrat==='< 3 ans').length;
+  const nbWarn   = SITES.filter(s=>s.fin_contrat==='Entre 3 et 5 ans').length;
+  const kpiItem = (val, label, color) =>
+    `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;display:flex;flex-direction:column;min-width:90px">
+      <span style="font-size:18px;font-weight:800;color:${color}">${val}</span>
+      <span style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:600">${label}</span>
+    </div>`;
+  document.getElementById('op-kpi-top').innerHTML =
+    kpiItem(nbOp, 'Opérateurs', '#00a3e0') +
+    kpiItem(fmtKt(totalNom), 'Cap. nominale', '#059669') +
+    kpiItem(fmtKt(totalReg), 'Cap. réglementaire', '#d97706') +
+    kpiItem(nbUrgent, 'Contrats < 3 ans', '#dc2626') +
+    kpiItem(nbWarn, 'Contrats 3-5 ans', '#d97706');
+
+  renderOpGrid();
   showAllOp();
 }
 function showAllOp() {
@@ -1333,6 +1478,128 @@ function showAllOp() {
   document.getElementById('op-hdr-default').style.display = '';
   document.getElementById('op-hdr-selected').style.display = 'none';
   document.querySelectorAll('.op-card').forEach(c=>c.classList.remove('selected'));
+}
+
+// Amél. 1 — Tri des cartes
+function setOpSort(mode) {
+  opSortMode = mode;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sort-'+mode)?.classList.add('active');
+  renderOpGrid();
+  applyViewMode();
+}
+
+// Amél. 6 — Toggle grille / liste
+function setOpView(mode) {
+  opViewMode = mode;
+  applyViewMode();
+  document.getElementById('btn-view-grid').classList.toggle('active', mode==='grid');
+  document.getElementById('btn-view-list').classList.toggle('active', mode==='list');
+}
+
+function applyViewMode() {
+  const gridEl = document.getElementById('op-grid');
+  const listEl = document.getElementById('op-list-view');
+  if (opViewMode === 'list') {
+    gridEl.style.display = 'none';
+    listEl.style.display = 'block';
+  } else {
+    gridEl.style.display = '';
+    listEl.style.display = 'none';
+  }
+}
+
+// Amél. 5 — Comparateur
+function toggleCompareMode() {
+  compareMode = !compareMode;
+  compareSelected = [];
+  const btn = document.getElementById('btn-compare');
+  btn.classList.toggle('active', compareMode);
+  btn.textContent = compareMode ? 'Comparer ✓' : 'Comparer';
+  document.getElementById('compare-info').style.display = compareMode ? '' : 'none';
+  document.getElementById('compare-actions').style.display = compareMode ? '' : 'none';
+  renderOpGrid();
+  applyViewMode();
+  if (!compareMode) showAllOp();
+}
+
+function exitCompareMode() {
+  compareMode = false;
+  compareSelected = [];
+  document.getElementById('btn-compare').classList.remove('active');
+  document.getElementById('btn-compare').textContent = 'Comparer';
+  document.getElementById('compare-info').style.display = 'none';
+  document.getElementById('compare-actions').style.display = 'none';
+  document.getElementById('op-grid-wrap').classList.remove('compare-mode');
+  renderOpGrid();
+  applyViewMode();
+  showAllOp();
+}
+
+function opCardClick(op) {
+  if (compareMode) {
+    // Mode comparaison : sélection multiple
+    const idx = compareSelected.indexOf(op);
+    if (idx >= 0) {
+      compareSelected.splice(idx, 1);
+    } else if (compareSelected.length < 3) {
+      compareSelected.push(op);
+    } else {
+      return; // max 3 opérateurs
+    }
+    renderOpGrid();
+    applyViewMode();
+    document.getElementById('compare-info').textContent =
+      compareSelected.length === 0 ? 'Sélectionnez 2-3 opérateurs' :
+      compareSelected.length === 1 ? `1 sélectionné — sélectionnez-en un autre` :
+      `${compareSelected.length} sélectionnés — comparaison active`;
+    if (compareSelected.length >= 2) showCompareView();
+    else showAllOp();
+  } else {
+    filterByOp(op);
+  }
+}
+
+function showCompareView() {
+  clearMarkers('op', mapOp); opMarkers=[];
+  // Afficher les sites de tous les opérateurs sélectionnés, colorés par opérateur
+  const allSites = SITES.filter(s=>compareSelected.includes(s.operateur));
+  allSites.forEach(s=>{
+    if(!s.lat) return;
+    const c = opColor(s.operateur);
+    const m = L.circleMarker([s.lat,s.lon],{
+      radius:7, fillColor:c, color:'#fff', weight:1.5, fillOpacity:.85
+    }).bindPopup(popupHTML(s),{maxWidth:320});
+    m.addTo(mapOp); opMarkers.push(m); storeMarker('op',s.id,m);
+  });
+  const coords = allSites.filter(s=>s.lat).map(s=>[s.lat,s.lon]);
+  if(coords.length>1) mapOp.fitBounds(coords,{padding:[50,50]});
+  // Panel droit : sites groupés par opérateur
+  document.getElementById('op-list-panel').style.display = 'flex';
+  document.getElementById('op-panel-title').textContent = `Comparaison — ${compareSelected.length} opérateurs`;
+  document.getElementById('list-operateurs').innerHTML = compareSelected.map(op=>{
+    const sites = SITES.filter(s=>s.operateur===op);
+    const c = opColor(op);
+    return `<div style="padding:8px 10px;border-bottom:2px solid ${c}22;margin-bottom:4px">
+      <div style="font-size:11px;font-weight:800;color:${c};margin-bottom:6px;display:flex;align-items:center;gap:6px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block"></span>${op} — ${sites.length} sites
+      </div>
+      ${sites.map(s=>{
+        const fcc=echeanceColor(s);
+        return `<div class="site-card" onclick="selectOnMap(${s.id},'op')" style="border-left:3px solid ${fcc};cursor:pointer">
+          <div class="site-card-name">${s.nom}</div>
+          <div style="font-size:10px;color:#64748b">${s.ville||''} · ${fmtKt(s.cap_nominale)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+function zoomToTerrOnOpMap(t) {
+  if (!mapOp) return;
+  const coords = SITES.filter(s=>s.territoire===t&&s.lat&&s.lon).map(s=>[s.lat,s.lon]);
+  if (!coords.length) return;
+  if (coords.length > 1) mapOp.fitBounds(coords, {padding:[60,60], maxZoom:10, animate:true});
+  else mapOp.setView(coords[0], 10, {animate:true});
 }
 function filterByOp(op) {
   clearMarkers('op', mapOp); opMarkers=[];
@@ -1368,6 +1635,7 @@ function filterByOp(op) {
   const urgent = filtered.filter(s=>s.fin_contrat==='< 3 ans').length;
   const warn   = filtered.filter(s=>s.fin_contrat==='Entre 3 et 5 ans').length;
   const safe   = filtered.filter(s=>s.fin_contrat==='6 ans et +').length;
+  const noDate = filtered.filter(s=>!s.fin_contrat||s.fin_contrat==='').length;
   const enAO   = filtered.filter(s=>['En cours','A venir'].includes(s.statut_ao)).length;
   const terrBreak = {}, segBreak = {};
   filtered.forEach(s => {
@@ -1377,6 +1645,10 @@ function filterByOp(op) {
   const terrSorted = Object.entries(terrBreak).sort((a,b)=>b[1]-a[1]);
   const segSorted  = Object.entries(segBreak).sort((a,b)=>b[1]-a[1]);
   const maxT = terrSorted[0]?.[1]||1, maxS = segSorted[0]?.[1]||1;
+  const fcTotal = urgent+warn+safe+noDate||1;
+
+  // Couleurs par segment (amél. 4b)
+  const SEG_COLORS = {'Marché':'#0073b1','DSP':'#8e44ad','MGP':'#27ae60','Régie':'#94a3b8','Privé':'#64748b'};
 
   const detailEl = document.getElementById('op-detail');
   detailEl.innerHTML = `
@@ -1396,23 +1668,42 @@ function filterByOp(op) {
       ${enAO   ? `<div class="op-kpi-mini" style="border-color:#bfdbfe;background:#eff6ff"><div class="op-kpi-mini-val" style="color:#3b82f6">${enAO}</div><div class="op-kpi-mini-label">AO</div></div>` : ''}
     </div>
     <div class="op-detail-scroll">
+      <!-- Amél. 4a : Répartition par territoire (cliquable) -->
       <div style="padding:10px 12px;border-bottom:1px solid #f1f5f9">
         <div class="mini-chart-title">Par territoire</div>
-        ${terrSorted.map(([t,n])=>`<div class="chart-row">
+        ${terrSorted.map(([t,n])=>`<div class="chart-row" style="cursor:pointer" onclick="zoomToTerrOnOpMap('${t}')" title="Zoomer sur ${TERR_LABELS[t]||t}">
           <div class="chart-row-label">
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${TERR_COLORS[t]||'#94a3b8'};display:inline-block"></span>${t}</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${TERR_COLORS[t]||'#94a3b8'};display:inline-block"></span>${t} <span style="font-size:9px;color:#94a3b8">${TERR_LABELS[t]||''}</span></span>
             <span style="font-weight:700;color:${TERR_COLORS[t]||'#94a3b8'}">${n}</span>
           </div>
           <div class="chart-bar-bg"><div class="chart-bar-val" style="width:${(n/maxT*100).toFixed(0)}%;background:${TERR_COLORS[t]||'#94a3b8'}"></div></div>
         </div>`).join('')}
       </div>
-      ${segSorted.length ? `<div style="padding:10px 12px">
+      <!-- Amél. 4b : Répartition par segment (puces colorées) -->
+      ${segSorted.length ? `<div style="padding:10px 12px;border-bottom:1px solid #f1f5f9">
         <div class="mini-chart-title">Par segment</div>
-        ${segSorted.map(([seg,n])=>`<div class="chart-row">
-          <div class="chart-row-label"><span>${seg}</span><span style="font-weight:700">${n}</span></div>
-          <div class="chart-bar-bg"><div class="chart-bar-val" style="width:${(n/maxS*100).toFixed(0)}%;background:${c}"></div></div>
-        </div>`).join('')}
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${segSorted.map(([seg,n])=>{const sc=SEG_COLORS[seg]||'#64748b';return `<span style="display:inline-flex;align-items:center;gap:4px;background:${sc}18;border:1px solid ${sc}44;border-radius:12px;padding:3px 9px;font-size:10px;font-weight:700;color:${sc}">
+            <span style="width:6px;height:6px;border-radius:50%;background:${sc};display:inline-block"></span>${seg} <span style="font-weight:900">${n}</span>
+          </span>`;}).join('')}
+        </div>
       </div>` : ''}
+      <!-- Amél. 4c : Timeline fins de contrat -->
+      <div style="padding:10px 12px">
+        <div class="mini-chart-title">Fins de contrat</div>
+        ${[
+          {label:'< 3 ans', count:urgent, color:'#dc2626', bg:'#fef2f2'},
+          {label:'3-5 ans', count:warn,   color:'#d97706', bg:'#fff7ed'},
+          {label:'6 ans+',  count:safe,   color:'#059669', bg:'#f0fdf4'},
+          {label:'N/R',     count:noDate, color:'#94a3b8', bg:'#f8fafc'}
+        ].map(({label,count,color,bg})=>count>0?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="min-width:48px;text-align:right;font-size:11px;font-weight:700;color:${color}">${count} site${count>1?'s':''}</div>
+          <div style="flex:1;height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden">
+            <div style="width:${(count/fcTotal*100).toFixed(0)}%;height:100%;background:${color};border-radius:5px"></div>
+          </div>
+          <div style="min-width:40px;font-size:9px;font-weight:700;color:${color};background:${bg};padding:1px 5px;border-radius:4px">${label}</div>
+        </div>`:'').join('')}
+      </div>
     </div>`;
   detailEl.style.display = 'flex';
   document.getElementById('op-grid-wrap').style.display = 'none';
