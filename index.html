@@ -1186,7 +1186,7 @@ function renderGlobalKPIs(filtered) {
     if (!ts.length) continue;
     const cn = ts.reduce((a,s)=>a+(s.cap_nominale||0),0);
     const tc = TERR_COLORS[t];
-    kpi += `<div class="kpi-card" style="border-left:3px solid ${tc}"><div class="kpi-label">${t}</div><div class="kpi-value" style="color:${tc};font-size:17px">${fmtKt(cn)}</div><div class="kpi-sub">${ts.length} site${ts.length>1?'s':''}</div></div>`;
+    kpi += `<div class="kpi-card" style="border-left:3px solid ${tc};cursor:pointer" title="Zoomer sur ${TERR_LABELS[t]||t}" onclick="zoomToTerr('${t}')"><div class="kpi-label">${t}</div><div class="kpi-value" style="color:${tc};font-size:17px">${fmtKt(cn)}</div><div class="kpi-sub">${ts.length} site${ts.length>1?'s':''}</div></div>`;
   }
   document.getElementById('kpi-global').innerHTML = kpi;
 }
@@ -1206,8 +1206,22 @@ function applyGlobalFilter() {
   renderGlobalKPIs(filtered);
   document.getElementById('list-global').innerHTML =
     [...filtered].sort((a,b)=>(b.cap_nominale||0)-(a.cap_nominale||0)).map(s=>siteCardHTML(s,maxCap,'global')).join('');
+  // Auto-zoom si filtre actif et moins de sites que le total
+  if (filtered.length < SITES.length && filtered.length > 0) {
+    const coords = filtered.filter(s=>s.lat&&s.lon).map(s=>[s.lat,s.lon]);
+    if (coords.length > 1) mapGlobal.fitBounds(coords, {padding:[50,50], maxZoom:10, animate:true});
+    else if (coords.length === 1) mapGlobal.setView(coords[0], 10, {animate:true});
+  } else if (filtered.length === SITES.length) {
+    mapGlobal.setView([46.5, 2.5], 6, {animate:true});
+  }
 }
 
+function zoomToTerr(t) {
+  const coords = SITES.filter(s=>s.territoire===t&&s.lat&&s.lon).map(s=>[s.lat,s.lon]);
+  if (!mapGlobal || !coords.length) return;
+  if (coords.length > 1) mapGlobal.fitBounds(coords, {padding:[60,60], maxZoom:10, animate:true});
+  else mapGlobal.setView(coords[0], 10, {animate:true});
+}
 function resetGlobalFilter() {
   const el=document.getElementById('g-search'); if(el) el.value='';
   ['ms-g-terr','ms-g-op','ms-g-seg','ms-g-client'].forEach(resetMS);
