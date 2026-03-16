@@ -508,6 +508,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #
       <button class="pill pill-orange" data-fc="m35" onclick="setPipPill(this)">3-5 ans</button>
       <button class="pill pill-green" data-fc="p6" onclick="setPipPill(this)">6 ans+</button>
     </div>
+    <div class="ms-wrap" id="ms-pip-op"></div>
     <div class="ms-wrap" id="ms-pip-seg"></div>
     <div class="ms-wrap" id="ms-pip-statut"></div>
     <button class="filter-reset" onclick="resetPipelineFilter()">× Réinitialiser</button>
@@ -1804,7 +1805,7 @@ function switchMarcheTab(tab) {
 }
 function initMarche() {
   const body = document.getElementById('tab-marche-pane');
-  if (body.innerHTML.trim()) return;
+  body.innerHTML = '';
 
   // Build operator stats
   const opMap = {};
@@ -1849,6 +1850,19 @@ function initMarche() {
       </span>
     </div>`
   ).join('');
+
+  // Segment breakdown
+  const segCounts={};
+  SITES.forEach(s=>{ const sg=s.segment||'Non précisé'; segCounts[sg]=(segCounts[sg]||0)+1; });
+  const segMap=Object.entries(segCounts).sort((a,b)=>b[1]-a[1]);
+
+  // Territory breakdown
+  const terrCounts={};
+  SITES.forEach(s=>{ const t=s.territoire;
+    if(!terrCounts[t]) terrCounts[t]={sites:0,nom:0,reg:0};
+    terrCounts[t].sites++; terrCounts[t].nom+=s.cap_nominale||0; terrCounts[t].reg+=s.cap_reglementaire||0;
+  });
+  const terrMap=Object.entries(terrCounts).sort((a,b)=>b[1].sites-a[1].sites);
 
   // Top 10 sites
   const top10 = [...SITES].sort((a,b)=>(b.cap_nominale||0)-(a.cap_nominale||0)).slice(0,10);
@@ -1915,6 +1929,113 @@ function initMarche() {
         <thead><tr><th>#</th><th>Site</th><th>Ville</th><th>Territoire</th><th>Opérateur</th><th>Cap. nominale</th><th>Cap. régl.</th><th>Delta</th></tr></thead>
         <tbody>${top10Rows}</tbody>
       </table>
+    </div>
+
+    <!-- Répartition par segment -->
+    <div class="marche-card">
+      <div class="marche-card-title">Répartition par segment de marché</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:8px">Par nombre de sites</div>
+          ${segMap.map(([seg,n])=>{
+            const pct=(n/totalSites*100).toFixed(1);
+            const colors={'Régie':'#64748b','Privé':'#3b82f6','DSP':'#f59e0b','MGP':'#8b5cf6','Marché':'#00a3e0','SEM':'#ec4899','Non précisé':'#cbd5e1'};
+            const c=colors[seg]||'#94a3b8';
+            return `<div style="margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px">
+                <span style="font-weight:600;color:#0f172a">${seg}</span>
+                <span style="color:${c};font-weight:700">${n} sites <span style="color:#94a3b8;font-weight:400">(${pct}%)</span></span>
+              </div>
+              <div style="height:6px;background:#f1f5f9;border-radius:3px">
+                <div style="height:6px;background:${c};border-radius:3px;width:${pct}%"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="flex:1;min-width:220px">
+          <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:8px">Par capacité nominale</div>
+          ${segMap.map(([seg])=>{
+            const segCap=SITES.filter(s=>s.segment===seg).reduce((a,s)=>a+(s.cap_nominale||0),0);
+            const pct=(segCap/totalNom*100).toFixed(1);
+            const colors={'Régie':'#64748b','Privé':'#3b82f6','DSP':'#f59e0b','MGP':'#8b5cf6','Marché':'#00a3e0','SEM':'#ec4899','Non précisé':'#cbd5e1'};
+            const c=colors[seg]||'#94a3b8';
+            return `<div style="margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px">
+                <span style="font-weight:600;color:#0f172a">${seg}</span>
+                <span style="color:${c};font-weight:700">${fmtKt(segCap)} <span style="color:#94a3b8;font-weight:400">(${pct}%)</span></span>
+              </div>
+              <div style="height:6px;background:#f1f5f9;border-radius:3px">
+                <div style="height:6px;background:${c};border-radius:3px;width:${pct}%"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Répartition par territoire -->
+    <div class="marche-card">
+      <div class="marche-card-title">Répartition par territoire</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+        ${terrMap.map(([terr,d])=>{
+          const tc=TERR_COLORS[terr]||'#94a3b8';
+          const label=TERR_LABELS[terr]||terr;
+          const pctSites=(d.sites/totalSites*100).toFixed(0);
+          const pctCap=(d.nom/totalNom*100).toFixed(0);
+          const delta=d.nom-d.reg;
+          const dc=delta>=0?'#059669':'#dc2626';
+          return `<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;border-left:4px solid ${tc}">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span style="font-size:12px;font-weight:700;color:#0f172a">${label}</span>
+              <span style="font-size:11px;color:${tc};font-weight:700">${d.sites} sites</span>
+            </div>
+            <div style="display:flex;gap:10px;font-size:11px;color:#64748b;margin-bottom:6px">
+              <span>Nom: <strong style="color:#0f172a">${fmtKt(d.nom)}</strong></span>
+              <span>Régl: <strong style="color:#d97706">${fmtKt(d.reg)}</strong></span>
+              <span>Delta: <strong style="color:${dc}">${delta>=0?'+':''}${fmtKt(delta)}</strong></span>
+            </div>
+            <div style="height:5px;background:#e2e8f0;border-radius:3px">
+              <div style="height:5px;background:${tc};border-radius:3px;width:${pctSites}%;opacity:0.7"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Timeline échéances contrats -->
+    <div class="marche-card">
+      <div class="marche-card-title">Échéances de contrats par année <span style="font-size:10px;color:#94a3b8;font-weight:400">— sites avec date de fin renseignée</span></div>
+      ${(()=>{
+        const byYear={};
+        SITES.filter(s=>s.annee_fin_contrat).forEach(s=>{
+          const y=s.annee_fin_contrat;
+          if(!byYear[y]) byYear[y]={n:0,cap:0,lt3:0,m35:0,p6:0};
+          byYear[y].n++;
+          byYear[y].cap+=s.cap_nominale||0;
+          if(s.fin_contrat==='< 3 ans') byYear[y].lt3++;
+          else if(s.fin_contrat==='Entre 3 et 5 ans') byYear[y].m35++;
+          else byYear[y].p6++;
+        });
+        const years=Object.keys(byYear).map(Number).sort((a,b)=>a-b);
+        const maxN=Math.max(...years.map(y=>byYear[y].n));
+        return `<div style="overflow-x:auto"><div style="display:flex;align-items:flex-end;gap:6px;min-width:${years.length*52}px;padding-bottom:4px">
+          ${years.map(y=>{
+            const d=byYear[y];
+            const h=Math.max(8,Math.round(d.n/maxN*120));
+            const c=d.lt3>0?'#dc2626':d.m35>0?'#d97706':'#059669';
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:default" title="${y}: ${d.n} site(s) — ${fmtKt(d.cap)}">
+              <div style="font-size:10px;font-weight:700;color:#0f172a">${d.n}</div>
+              <div style="width:100%;height:${h}px;background:${c};border-radius:4px 4px 0 0;opacity:0.85;min-width:34px"></div>
+              <div style="font-size:9.5px;color:#64748b;font-weight:600;white-space:nowrap">${y}</div>
+            </div>`;
+          }).join('')}
+        </div></div>
+        <div style="display:flex;gap:16px;margin-top:10px;font-size:10.5px">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dc2626;margin-right:4px"></span>&lt;3 ans</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d97706;margin-right:4px"></span>3-5 ans</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#059669;margin-right:4px"></span>6 ans+</span>
+        </div>`;
+      })()}
     </div>`;
 }
 
@@ -2236,18 +2357,20 @@ function setPipPill(btn) {
 }
 function resetPipelineFilter() {
   const el=document.getElementById('pip-search'); if(el) el.value='';
-  ['ms-pip-seg','ms-pip-statut'].forEach(resetMS);
+  ['ms-pip-op','ms-pip-seg','ms-pip-statut'].forEach(resetMS);
   document.querySelectorAll('#pip-pills .pill').forEach(p=>p.classList.remove('active-pill'));
   document.querySelector('#pip-pills [data-fc=""]')?.classList.add('active-pill');
   applyPipelineFilter();
 }
 function getPipelineFiltered() {
   const q      = (document.getElementById('pip-search')?.value || '').toLowerCase();
+  const ops    = getMultiVal('ms-pip-op');
   const segs   = getMultiVal('ms-pip-seg');
   const statuts= getMultiVal('ms-pip-statut');
   const fc     = fcFromPill('pip-pills');
   return SITES.filter(s => {
     if (!matchVal(s.fin_contrat, fc))          return false;
+    if (!matchMulti(s.operateur, ops))         return false;
     if (!matchMulti(s.segment,   segs))        return false;
     if (!matchMulti(s.statut_ao, statuts))     return false;
     if (q) return s.nom.toLowerCase().includes(q)||s.ville.toLowerCase().includes(q)||(s.operateur||'').toLowerCase().includes(q);
@@ -2336,8 +2459,10 @@ function buildTimelineChart() {
 function initPipeline() {
 
   // Remplir les multi-selects depuis les données SITES
+  const pipOpOpts     = [...new Set(SITES.map(s=>(s.operateur||'').trim()).filter(Boolean))].sort();
   const pipSegOpts    = [...new Set(SITES.map(s=>(s.segment||'').trim()).filter(Boolean))].sort();
   const pipStatutOpts = [...new Set(SITES.map(s=>(s.statut_ao||'').trim()).filter(Boolean))].sort();
+  buildMultiSelect('ms-pip-op',     pipOpOpts,     'Tous opérateurs', applyPipelineFilter);
   buildMultiSelect('ms-pip-seg',    pipSegOpts,    'Tous segments',   applyPipelineFilter);
   buildMultiSelect('ms-pip-statut', pipStatutOpts, 'Tous statuts AO', applyPipelineFilter);
 
