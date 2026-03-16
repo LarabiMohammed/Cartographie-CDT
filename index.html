@@ -1856,14 +1856,6 @@ function initMarche() {
   SITES.forEach(s=>{ const sg=s.segment||'Non précisé'; segCounts[sg]=(segCounts[sg]||0)+1; });
   const segMap=Object.entries(segCounts).sort((a,b)=>b[1]-a[1]);
 
-  // Territory breakdown
-  const terrCounts={};
-  SITES.forEach(s=>{ const t=s.territoire;
-    if(!terrCounts[t]) terrCounts[t]={sites:0,nom:0,reg:0};
-    terrCounts[t].sites++; terrCounts[t].nom+=s.cap_nominale||0; terrCounts[t].reg+=s.cap_reglementaire||0;
-  });
-  const terrMap=Object.entries(terrCounts).sort((a,b)=>b[1].sites-a[1].sites);
-
   // Top 10 sites
   const top10 = [...SITES].sort((a,b)=>(b.cap_nominale||0)-(a.cap_nominale||0)).slice(0,10);
   const top10Rows = top10.map((s,i) => {
@@ -1973,32 +1965,91 @@ function initMarche() {
       </div>
     </div>
 
-    <!-- Répartition par territoire -->
+    <!-- Analyse concurrentielle & opportunités -->
     <div class="marche-card">
-      <div class="marche-card-title">Répartition par territoire</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
-        ${terrMap.map(([terr,d])=>{
-          const tc=TERR_COLORS[terr]||'#94a3b8';
-          const label=TERR_LABELS[terr]||terr;
-          const pctSites=(d.sites/totalSites*100).toFixed(0);
-          const pctCap=(d.nom/totalNom*100).toFixed(0);
-          const delta=d.nom-d.reg;
-          const dc=delta>=0?'#059669':'#dc2626';
-          return `<div style="background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0;border-left:4px solid ${tc}">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-              <span style="font-size:12px;font-weight:700;color:#0f172a">${label}</span>
-              <span style="font-size:11px;color:${tc};font-weight:700">${d.sites} sites</span>
-            </div>
-            <div style="display:flex;gap:10px;font-size:11px;color:#64748b;margin-bottom:6px">
-              <span>Nom: <strong style="color:#0f172a">${fmtKt(d.nom)}</strong></span>
-              <span>Régl: <strong style="color:#d97706">${fmtKt(d.reg)}</strong></span>
-              <span>Delta: <strong style="color:${dc}">${delta>=0?'+':''}${fmtKt(delta)}</strong></span>
-            </div>
-            <div style="height:5px;background:#e2e8f0;border-radius:3px">
-              <div style="height:5px;background:${tc};border-radius:3px;width:${pctSites}%;opacity:0.7"></div>
-            </div>
-          </div>`;
-        }).join('')}
+      <div class="marche-card-title" style="color:#00a3e0">Benchmark concurrentiel — Top opérateurs</div>
+      <div style="overflow-x:auto">
+        <table class="top10-table">
+          <thead><tr>
+            <th>Opérateur</th><th>Sites</th><th>Part sites</th>
+            <th>Cap. nominale</th><th>Part cap.</th>
+            <th>Delta nom-régl</th>
+            <th style="color:#dc2626">&lt;3 ans</th>
+            <th style="color:#d97706">3-5 ans</th>
+          </tr></thead>
+          <tbody>${(()=>{
+            const mainOps = opList.slice(0,10);
+            const maxSites = mainOps[0]?.[1]?.sites||1;
+            return mainOps.map(([op,v])=>{
+              const c=opColor(op);
+              const pctS=((v.sites/totalSites)*100).toFixed(1);
+              const pctC=((v.nom/totalNom)*100).toFixed(1);
+              const delta=v.nom-v.reg;
+              const dc=delta>=0?'#059669':'#dc2626';
+              const ds=delta>=0?'+':'';
+              const opSites=SITES.filter(s=>s.operateur===op);
+              const lt3=opSites.filter(s=>s.fin_contrat==='< 3 ans').length;
+              const m35=opSites.filter(s=>s.fin_contrat==='Entre 3 et 5 ans').length;
+              const isVeolia=op==='VEOLIA';
+              return `<tr style="background:${isVeolia?'#eff9ff':''}">
+                <td><span style="font-weight:700;color:${c}">${op}</span>${isVeolia?' <span style="font-size:9px;background:#00a3e0;color:#fff;padding:1px 4px;border-radius:3px;margin-left:4px">VOUS</span>':''}</td>
+                <td style="font-weight:700">${v.sites}</td>
+                <td><div style="display:flex;align-items:center;gap:6px"><div style="width:60px;height:5px;background:#f1f5f9;border-radius:3px"><div style="width:${pctS}%;height:5px;background:${c};border-radius:3px"></div></div><span style="font-size:10px;color:#64748b">${pctS}%</span></div></td>
+                <td style="font-weight:600">${fmtKt(v.nom)}</td>
+                <td><div style="display:flex;align-items:center;gap:6px"><div style="width:60px;height:5px;background:#f1f5f9;border-radius:3px"><div style="width:${pctC}%;height:5px;background:${c};border-radius:3px"></div></div><span style="font-size:10px;color:#64748b">${pctC}%</span></div></td>
+                <td style="font-weight:700;color:${dc}">${ds}${fmtKt(delta)}</td>
+                <td style="color:#dc2626;font-weight:${lt3>0?'700':'400'}">${lt3||'—'}</td>
+                <td style="color:#d97706;font-weight:${m35>0?'700':'400'}">${m35||'—'}</td>
+              </tr>`;
+            }).join('');
+          })()}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Opportunités de conquête -->
+    <div class="marche-row">
+      <div class="marche-card" style="border-top:3px solid #dc2626">
+        <div class="marche-card-title">🎯 Opportunités de conquête — contrats &lt;3 ans chez la concurrence</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:10px">Sites opérés par des concurrents avec échéance imminente</div>
+        <div style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto">
+          ${(()=>{
+            const conquetes=SITES.filter(s=>s.operateur!=='VEOLIA'&&s.fin_contrat==='< 3 ans'&&s.operateur)
+              .sort((a,b)=>(b.cap_nominale||0)-(a.cap_nominale||0));
+            if(!conquetes.length) return '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:20px">Aucun site identifié</div>';
+            return conquetes.map(s=>{
+              const oc=opColor(s.operateur),tc=TERR_COLORS[s.territoire]||'#94a3b8';
+              return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff5f5;border-radius:7px;border:1px solid #fecaca;font-size:11px">
+                <div style="flex:1;font-weight:600;color:#0f172a;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.nom}</div>
+                <span style="background:${tc}18;color:${tc};padding:1px 5px;border-radius:4px;font-size:9.5px;font-weight:700;flex-shrink:0">${s.territoire}</span>
+                <span style="background:${oc}18;color:${oc};padding:1px 5px;border-radius:4px;font-size:9.5px;font-weight:700;flex-shrink:0">${s.operateur}</span>
+                <span style="color:#059669;font-weight:700;flex-shrink:0">${fmtKt(s.cap_nominale)}</span>
+                ${s.annee_fin_contrat?`<span style="color:#dc2626;font-weight:700;flex-shrink:0">${s.annee_fin_contrat}</span>`:''}
+              </div>`;
+            }).join('');
+          })()}
+        </div>
+      </div>
+      <div class="marche-card" style="border-top:3px solid #f59e0b">
+        <div class="marche-card-title">🔒 Renouvellements Veolia à sécuriser</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:10px">Sites Veolia dont le contrat arrive à échéance</div>
+        <div style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto">
+          ${(()=>{
+            const renouv=SITES.filter(s=>s.operateur==='VEOLIA'&&s.fin_contrat&&s.fin_contrat!=='6 ans et +')
+              .sort((a,b)=>{const o={'< 3 ans':0,'Entre 3 et 5 ans':1};return (o[a.fin_contrat]??2)-(o[b.fin_contrat]??2)||(a.annee_fin_contrat||9999)-(b.annee_fin_contrat||9999);});
+            if(!renouv.length) return '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:20px">Aucun renouvellement imminent</div>';
+            return renouv.map(s=>{
+              const fc=echeanceColor(s),tc=TERR_COLORS[s.territoire]||'#94a3b8';
+              return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fffbeb;border-radius:7px;border:1px solid #fde68a;font-size:11px">
+                <div style="flex:1;font-weight:600;color:#0f172a;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.nom}</div>
+                <span style="background:${tc}18;color:${tc};padding:1px 5px;border-radius:4px;font-size:9.5px;font-weight:700;flex-shrink:0">${s.territoire}</span>
+                <span style="background:${fc}18;color:${fc};border:1px solid ${fc}30;padding:1px 5px;border-radius:4px;font-size:9.5px;font-weight:700;flex-shrink:0">${s.fin_contrat}</span>
+                <span style="color:#059669;font-weight:700;flex-shrink:0">${fmtKt(s.cap_nominale)}</span>
+                ${s.annee_fin_contrat?`<span style="color:#475569;font-weight:600;flex-shrink:0">${s.annee_fin_contrat}</span>`:''}
+              </div>`;
+            }).join('');
+          })()}
+        </div>
       </div>
     </div>
 
