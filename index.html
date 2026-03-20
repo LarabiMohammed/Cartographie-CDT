@@ -69,6 +69,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #
 .kpi-value { font-size: 22px; font-weight: 800; color: #0f172a; margin: 2px 0; }
 .kpi-sub { font-size: 11px; color: #94a3b8; }
 .kpi-blue { color: #00a3e0; } .kpi-green { color: #059669; } .kpi-orange { color: #d97706; } .kpi-red { color: #dc2626; }
+@keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:0.65} }
 
 /* ── MAP ── */
 .map-area { flex: 1; display: flex; overflow: hidden; }
@@ -332,8 +333,8 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #
     </div>
     <div style="display:flex;align-items:center;gap:12px">
       <div class="delta-legend">
-        <div class="delta-legend-item"><div class="delta-dot" style="background:white;border:3px solid #059669"></div>Contour vert = OK</div>
-        <div class="delta-legend-item"><div class="delta-dot" style="background:white;border:3px solid #dc2626"></div>Contour rouge = sous-capacité</div>
+        <div class="delta-legend-item"><div class="delta-dot" style="background:white;border:3px solid #059669"></div>Contour vert = vide de tri potentiel</div>
+        <div class="delta-legend-item"><div class="delta-dot" style="background:white;border:3px solid #dc2626"></div>Contour rouge = surcapacité</div>
         <div class="delta-legend-item"><div class="delta-dot" style="background:white;border:2px dashed #94a3b8"></div>Tirets = données manquantes</div>
       </div>
       <button class="btn-export" onclick="exportPageCSV('global')" title="Exporter les sites filtrés en CSV">
@@ -930,40 +931,44 @@ function statutColor(st) {
 // ── Delta / territoire colors ───────────────────────────────
 function deltaColor(s) {
   const nom = s.cap_nominale || 0, reg = s.cap_reglementaire || 0;
-  if (nom === 0) return '#94a3b8';
-  if (nom >= reg) return '#059669';
-  return '#dc2626';
+  if (nom === 0 || reg === 0) return '#94a3b8'; // donnees manquantes
+  if (reg > nom) return '#059669';  // vide de tri potentiel (AP > nominal)
+  return '#dc2626';                 // surcapacite (nominal > AP)
 }
 
-// Page France entière : fill = territoire, stroke = delta
+// Page France entière : fill = opérateur (top colorés, reste gris), stroke = delta
 function makeGlobalMarker(s, sizeMult) {
   if (!s.lat) return null;
   const cap = s.cap_nominale || s.cap_reglementaire || 5000;
   const r = Math.max(6, Math.min(30, Math.sqrt(cap / 1000) * (sizeMult || 2.2)));
-  const noData = (s.cap_nominale === 0);
+  const noData = (s.cap_nominale === 0 || s.cap_reglementaire === 0);
+  const dc = deltaColor(s);
+  const isLt3 = s.fin_contrat === '< 3 ans';
   return L.circleMarker([s.lat, s.lon], {
     radius: r,
-    fillColor: TERR_COLORS[s.territoire] || '#94a3b8',
-    color: deltaColor(s),
-    weight: noData ? 2 : 2.5,
+    fillColor: opColor(s.operateur),
+    color: dc,
+    weight: noData ? 2 : (isLt3 ? 3.5 : 2.5),
     fillOpacity: noData ? 0.40 : 0.78,
-    dashArray: noData ? '4,3' : null,
+    dashArray: noData ? '4,3' : (isLt3 ? '6,2' : null),
   }).bindPopup(popupHTML(s), { maxWidth: 300 });
 }
 
-// Pages territoire / opérateur : fill = delta, stroke = territoire
+// Pages territoire / opérateur : fill = opérateur, stroke = delta
 function makeMarker(s, sizeMult) {
   if (!s.lat) return null;
   const cap = s.cap_nominale || s.cap_reglementaire || 5000;
   const r = Math.max(6, Math.min(30, Math.sqrt(cap / 1000) * (sizeMult || 2.2)));
-  const noData = (s.cap_nominale === 0);
+  const noData = (s.cap_nominale === 0 || s.cap_reglementaire === 0);
+  const dc = deltaColor(s);
+  const isLt3 = s.fin_contrat === '< 3 ans';
   return L.circleMarker([s.lat, s.lon], {
     radius: r,
-    fillColor: deltaColor(s),
-    color: TERR_COLORS[s.territoire] || '#64748b',
-    weight: 2.5,
+    fillColor: opColor(s.operateur),
+    color: dc,
+    weight: noData ? 2 : (isLt3 ? 3.5 : 2.5),
     fillOpacity: noData ? 0.45 : 0.80,
-    dashArray: noData ? '4,3' : null,
+    dashArray: noData ? '4,3' : (isLt3 ? '6,2' : null),
   }).bindPopup(popupHTML(s), { maxWidth: 300 });
 }
 
@@ -987,7 +992,7 @@ function siteCardHTML(s, maxCap, mapCtx) {
   const reg = s.cap_reglementaire || 0;
   const noData = nom === 0;
   const pct = maxCap ? Math.min(100, nom / maxCap * 100) : 0;
-  const barColor = noData ? '#94a3b8' : (nom >= reg ? '#059669' : '#dc2626');
+  const barColor = noData ? '#94a3b8' : (reg > nom ? '#059669' : '#dc2626');
   const tc = TERR_COLORS[s.territoire] || '#94a3b8';
   const oc = opColor(s.operateur);
   const missingClass = noData ? ' missing-data' : '';
@@ -1014,9 +1019,9 @@ function siteCardHTML(s, maxCap, mapCtx) {
 
 function popupHTML(s) {
   const delta = (s.cap_nominale || 0) - (s.cap_reglementaire || 0);
-  const dc = delta > 0 ? 'delta-ok' : delta < 0 ? 'delta-over' : 'delta-zero';
-  const dl = delta > 0 ? `+${fmtN(delta)} (surplus nominal)`
-    : delta < 0 ? `${fmtN(delta)} (sous-capacité)` : 'Données manquantes / identiques';
+  const dc = delta < 0 ? 'delta-ok' : delta > 0 ? 'delta-over' : 'delta-zero';
+  const dl = delta < 0 ? `${fmtN(delta)} (vide de tri potentiel — AP > nominal)`
+    : delta > 0 ? `+${fmtN(delta)} (surcapacité — nominal > AP)` : 'Données manquantes / identiques';
   const fcc = echeanceColor(s);
   const fcBadge = s.fin_contrat ? `<span style="background:${fcc}18;color:${fcc};font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid ${fcc}40;vertical-align:middle">${s.fin_contrat}</span>` : '';
   const statBadge = s.statut_ao ? `<span style="background:${statutColor(s.statut_ao)}18;color:${statutColor(s.statut_ao)};font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;vertical-align:middle">${s.statut_ao}</span>` : '';
@@ -1238,18 +1243,18 @@ function renderGlobalKPIs(filtered) {
   const totalNom = filtered.reduce((a,s)=>a+(s.cap_nominale||0),0);
   const totalReg = filtered.reduce((a,s)=>a+(s.cap_reglementaire||0),0);
   const delta = totalNom - totalReg;
-  const nOK = filtered.filter(s=>s.cap_nominale>0&&s.cap_nominale>=s.cap_reglementaire).length;
-  const nOver = filtered.filter(s=>s.cap_nominale>0&&s.cap_nominale<s.cap_reglementaire).length;
-  const nMissing = filtered.filter(s=>!s.cap_nominale).length;
+  const nOK = filtered.filter(s=>s.cap_nominale>0&&s.cap_reglementaire>0&&s.cap_reglementaire>s.cap_nominale).length;
+  const nOver = filtered.filter(s=>s.cap_nominale>0&&s.cap_reglementaire>0&&s.cap_nominale>s.cap_reglementaire).length;
+  const nMissing = filtered.filter(s=>!s.cap_nominale||!s.cap_reglementaire).length;
   const opCount = new Set(filtered.map(s=>s.operateur).filter(Boolean)).size;
   const terrCount = new Set(filtered.map(s=>s.territoire).filter(Boolean)).size;
   let kpi = `
     <div class="kpi-card"><div class="kpi-label">Sites CS</div><div class="kpi-value kpi-blue">${filtered.length}</div><div class="kpi-sub">${terrCount} territoire${terrCount>1?'s':''}</div></div>
     <div class="kpi-card"><div class="kpi-label">Cap. nominale</div><div class="kpi-value kpi-green">${fmtKt(totalNom)}</div><div class="kpi-sub">t/an</div></div>
     <div class="kpi-card"><div class="kpi-label">Cap. réglementaire</div><div class="kpi-value kpi-orange">${fmtKt(totalReg)}</div><div class="kpi-sub">t/an</div></div>
-    <div class="kpi-card"><div class="kpi-label">Delta global</div><div class="kpi-value ${delta>=0?'kpi-green':'kpi-red'}">${delta>=0?'+':''}${fmtKt(delta)}</div><div class="kpi-sub">Nom &minus; Régl</div></div>
-    <div class="kpi-card"><div class="kpi-label">Sites OK</div><div class="kpi-value" style="color:#059669">${nOK}</div><div class="kpi-sub">capacité suffisante</div></div>
-    <div class="kpi-card"><div class="kpi-label">Sous-capacité</div><div class="kpi-value" style="color:#dc2626">${nOver}</div><div class="kpi-sub">nom &lt; régl</div></div>
+    <div class="kpi-card"><div class="kpi-label">Delta global</div><div class="kpi-value ${delta<=0?'kpi-green':'kpi-red'}">${delta>0?'+':''}${fmtKt(delta)}</div><div class="kpi-sub">Nom &minus; Régl</div></div>
+    <div class="kpi-card"><div class="kpi-label">Vide de tri potentiel</div><div class="kpi-value" style="color:#059669">${nOK}</div><div class="kpi-sub">AP &gt; nominal</div></div>
+    <div class="kpi-card"><div class="kpi-label">Surcapacité</div><div class="kpi-value" style="color:#dc2626">${nOver}</div><div class="kpi-sub">nominal &gt; AP</div></div>
     <div class="kpi-card"><div class="kpi-label">Données manquantes</div><div class="kpi-value" style="color:#94a3b8">${nMissing}</div><div class="kpi-sub">cap = 0</div></div>
     <div class="kpi-card"><div class="kpi-label">Opérateurs</div><div class="kpi-value">${opCount}</div><div class="kpi-sub">acteurs</div></div>`;
   for (const t of ['BARA','COU','GE','IDF','NNO','OM','PACA','SOU']) {
@@ -1304,17 +1309,20 @@ function initGlobal() {
   mapGlobal = L.map('map-global').setView([46.5, 2.5], 6);
   L.tileLayer(TILES, { attribution: TILES_ATTR, maxZoom: 19 }).addTo(mapGlobal);
 
-  // Légende : fill=territoire, stroke=delta
+  // Légende : fill=opérateur (top colorés, reste gris), stroke=delta
   const legend = L.control({ position: 'bottomleft' });
   legend.onAdd = () => {
     const d = L.DomUtil.create('div', 'map-legend');
-    d.innerHTML = '<div class="legend-title">Remplissage = territoire</div>'
-      + Object.entries(TERR_COLORS).map(([t,c])=>`<div class="legend-row"><div class="legend-dot" style="background:${c};border-color:rgba(0,0,0,0.15)"></div>${t} — ${TERR_LABELS[t]}</div>`).join('')
+    const TOP_OPS = [['PAPREC','#e74c3c'],['SUEZ','#0073b1'],['VEOLIA','#00a3e0'],['SEPUR','#7b2d8b'],['SCHROLL (REMONDIS)','#16a085'],['TRISELEC','#d35400']];
+    d.innerHTML = '<div class="legend-title">Remplissage = opérateur</div>'
+      + TOP_OPS.map(([op,c])=>`<div class="legend-row"><div class="legend-dot" style="background:${c};border-color:rgba(0,0,0,0.15)"></div>${op}</div>`).join('')
+      + '<div class="legend-row"><div class="legend-dot" style="background:#94a3b8;border-color:rgba(0,0,0,0.15)"></div>Autres opérateurs</div>'
       + '<div class="legend-sep"></div>'
       + '<div class="legend-title">Contour = delta capacité</div>'
-      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#059669;border-width:3px"></div>Capacité OK (nom ≥ régl)</div>'
-      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#dc2626;border-width:3px"></div>Sous-capacité (nom &lt; régl)</div>'
+      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#059669;border-width:3px"></div>Vide de tri potentiel (AP &gt; nominal)</div>'
+      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#dc2626;border-width:3px"></div>Surcapacité (nominal &gt; AP)</div>'
       + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#94a3b8;border-width:2px;border-style:dashed"></div>Données manquantes</div>'
+      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#dc2626;border-width:3.5px;border-style:dashed"></div>Contrat &lt; 3 ans</div>'
       + '<div class="legend-hint">&#9679; taille = capacité nominale</div>';
     return d;
   };
@@ -1400,7 +1408,7 @@ function renderOpGrid() {
     ).join('');
     // Double barre cap nom / régl (amélioration 2)
     const nomPct = data.reg > 0 ? Math.min((data.nom/data.reg)*100,150).toFixed(0) : 100;
-    const barColor = data.nom >= data.reg ? '#059669' : '#dc2626';
+    const barColor = data.reg > data.nom ? '#059669' : '#dc2626';
     const dblBar = `
       <div class="op-dbl-bar-wrap">
         <div class="op-dbl-bar-nom" style="width:${nomPct}%;background:${barColor}"></div>
@@ -1430,14 +1438,14 @@ function renderOpGrid() {
     const enc = encodeURIComponent(op);
     const urgentN = data.sites.filter(s=>s.fin_contrat==='< 3 ans').length;
     const delta = data.nom - data.reg;
-    const deltaColor = delta >= 0 ? '#059669' : '#dc2626';
+    const deltaColor = delta <= 0 ? '#059669' : '#dc2626';
     return `<div class="op-list-row" data-op="${enc}" onclick="opCardClick(decodeURIComponent(this.dataset.op))">
       <div class="op-list-color" style="background:${c}"></div>
       <div class="op-list-name">${op}</div>
       <div class="op-list-val" style="font-weight:700;color:${c}">${data.sites.length}</div>
       <div class="op-list-val" style="font-size:10px">${fmtKt(data.nom)}</div>
       <div class="op-list-val" style="font-size:10px">${fmtKt(data.reg)}</div>
-      <div class="op-list-val" style="font-size:10px;color:${deltaColor};font-weight:700">${delta>=0?'+':''}${fmtKt(delta)}</div>
+      <div class="op-list-val" style="font-size:10px;color:${deltaColor};font-weight:700">${delta>0?'+':''}${fmtKt(delta)}</div>
       ${urgentN ? `<span class="op-list-badge" style="background:#fef2f2;color:#dc2626">${urgentN}!</span>` : '<span style="width:28px"></span>'}
     </div>`;
   }).join('');
@@ -1480,7 +1488,21 @@ function showAllOp() {
   SITES.forEach(s=>{const m=makeGlobalMarker(s);if(m){m.addTo(mapOp);opMarkers.push(m);storeMarker('op',s.id,m);}});
   mapOp.setView([46.5,2.5],6);
   document.getElementById('op-kpi-top').style.display = 'flex';
-  const leg=document.getElementById('op-map-legend'); if(leg) leg.style.display='none';
+  const leg=document.getElementById('op-map-legend');
+  if(leg){
+    const TOP_OPS=[['PAPREC','#e74c3c'],['SUEZ','#0073b1'],['VEOLIA','#00a3e0'],['SEPUR','#7b2d8b'],['SCHROLL (REMONDIS)','#16a085'],['TRISELEC','#d35400']];
+    leg.innerHTML='<div class="legend-title">Remplissage = opérateur</div>'
+      +TOP_OPS.map(([op,c])=>`<div class="legend-row"><div class="legend-dot" style="background:${c};border-color:rgba(0,0,0,.15)"></div>${op}</div>`).join('')
+      +'<div class="legend-row"><div class="legend-dot" style="background:#94a3b8;border-color:rgba(0,0,0,.15)"></div>Autres</div>'
+      +'<div class="legend-sep"></div>'
+      +'<div class="legend-title">Contour = delta capacité</div>'
+      +'<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#059669;border-width:3px"></div>Vide de tri potentiel</div>'
+      +'<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#dc2626;border-width:3px"></div>Surcapacité</div>'
+      +'<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#94a3b8;border-width:2px;border-style:dashed"></div>Données manquantes</div>'
+      +'<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#dc2626;border-width:3.5px;border-style:dashed"></div>Contrat &lt; 3 ans</div>'
+      +'<div class="legend-hint">&#9679; taille = capacité nominale</div>';
+    leg.style.display='';
+  }
   // Sidebar : montre la grille, cache le détail
   document.getElementById('op-grid-wrap').style.display = 'flex';
   document.getElementById('op-detail').style.display = 'none';
@@ -1666,7 +1688,7 @@ function showCompareView() {
           ${row('Cap. nominale', opData.map(d=>d.nom), maxNom, fmtKt, null)}
           ${row('Cap. réglementaire', opData.map(d=>d.reg), maxNom, fmtKt, null)}
           ${row('Delta (nom−régl)', opData.map(d=>d.nom-d.reg), Math.max(...opData.map(d=>Math.abs(d.nom-d.reg)))||1,
-            v=>(v>=0?'+':'')+fmtKt(v), (d,v)=>v>=0?'#059669':'#dc2626')}
+            v=>(v>0?'+':'')+fmtKt(v), (d,v)=>v<=0?'#059669':'#dc2626')}
           <tr><td colspan="${opData.length+1}" style="padding:6px 10px;font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #f1f5f9">Contrats</td></tr>
           ${row('< 3 ans', opData.map(d=>d.urg), maxUrg, v=>v, ()=>'#dc2626')}
           ${row('3 – 5 ans', opData.map(d=>d.warn), Math.max(...opData.map(d=>d.warn))||1, v=>v, ()=>'#d97706')}
@@ -1745,7 +1767,7 @@ function filterByOp(op) {
     <div class="op-kpi-grid">
       <div class="op-kpi-mini"><div class="op-kpi-mini-val" style="color:#059669">${fmtKt(totalNom)}</div><div class="op-kpi-mini-label">Cap. nom.</div></div>
       <div class="op-kpi-mini"><div class="op-kpi-mini-val" style="color:#d97706">${fmtKt(totalReg)}</div><div class="op-kpi-mini-label">Cap. régl.</div></div>
-      <div class="op-kpi-mini"><div class="op-kpi-mini-val" style="color:${delta>=0?'#059669':'#dc2626'}">${delta>=0?'+':''}${fmtKt(delta)}</div><div class="op-kpi-mini-label">Delta</div></div>
+      <div class="op-kpi-mini"><div class="op-kpi-mini-val" style="color:${delta<=0?'#059669':'#dc2626'}">${delta>0?'+':''}${fmtKt(delta)}</div><div class="op-kpi-mini-label">Delta</div></div>
       ${urgent ? `<div class="op-kpi-mini" style="border-color:#fecaca;background:#fef2f2"><div class="op-kpi-mini-val" style="color:#dc2626">${urgent}</div><div class="op-kpi-mini-label">&lt;3 ans</div></div>` : ''}
       ${warn   ? `<div class="op-kpi-mini" style="border-color:#fed7aa;background:#fff7ed"><div class="op-kpi-mini-val" style="color:#d97706">${warn}</div><div class="op-kpi-mini-label">3-5 ans</div></div>` : ''}
       ${enAO   ? `<div class="op-kpi-mini" style="border-color:#bfdbfe;background:#eff6ff"><div class="op-kpi-mini-val" style="color:#3b82f6">${enAO}</div><div class="op-kpi-mini-label">AO</div></div>` : ''}
@@ -1872,8 +1894,8 @@ function initMarche() {
     const oc=opColor(s.operateur);
     const safeOp = (s.operateur||'').replace(/'/g,'&apos;');
     const delta = (s.cap_nominale||0)-(s.cap_reglementaire||0);
-    const dc = delta>0?'#059669':delta<0?'#dc2626':'#94a3b8';
-    const ds = delta>=0?'+':'';
+    const dc = delta<0?'#059669':delta>0?'#dc2626':'#94a3b8';
+    const ds = delta>0?'+':'';
     return `<tr style="cursor:pointer;transition:background .12s" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''" onclick="top10Click('${safeOp}')">
       <td><span class="rank-badge ${rankClass}">${i+1}</span></td>
       <td style="font-weight:600;color:#0f172a">${s.nom}</td>
@@ -1993,8 +2015,8 @@ function initMarche() {
               const pctS=((v.sites/totalSites)*100).toFixed(1);
               const pctC=((v.nom/totalNom)*100).toFixed(1);
               const delta=v.nom-v.reg;
-              const dc=delta>=0?'#059669':'#dc2626';
-              const ds=delta>=0?'+':'';
+              const dc=delta<=0?'#059669':'#dc2626';
+              const ds=delta>0?'+':'';
               const opSites=SITES.filter(s=>s.operateur===op);
               const lt3=opSites.filter(s=>s.fin_contrat==='< 3 ans').length;
               const m35=opSites.filter(s=>s.fin_contrat==='Entre 3 et 5 ans').length;
@@ -2286,7 +2308,7 @@ function renderTerrKPIs(t, ts) {
     <div class="kpi-card" style="border-left:3px solid ${tc}"><div class="kpi-label">Sites</div><div class="kpi-value" style="color:${tc}">${ts.length}</div><div class="kpi-sub">répertoriés</div></div>
     <div class="kpi-card"><div class="kpi-label">Cap. nominale</div><div class="kpi-value kpi-green">${fmtKt(totalNom)}</div><div class="kpi-sub">t/an</div></div>
     <div class="kpi-card"><div class="kpi-label">Cap. réglementaire</div><div class="kpi-value kpi-orange">${fmtKt(totalReg)}</div><div class="kpi-sub">t/an</div></div>
-    <div class="kpi-card"><div class="kpi-label">Delta</div><div class="kpi-value ${delta>=0?'kpi-green':'kpi-red'}">${delta>=0?'+':''}${fmtKt(delta)}</div><div class="kpi-sub">Nom &minus; Régl</div></div>
+    <div class="kpi-card"><div class="kpi-label">Delta</div><div class="kpi-value ${delta<=0?'kpi-green':'kpi-red'}">${delta>0?'+':''}${fmtKt(delta)}</div><div class="kpi-sub">Nom &minus; Régl</div></div>
     <div class="kpi-card"><div class="kpi-label">Opérateurs</div><div class="kpi-value">${ops.size}</div><div class="kpi-sub">acteurs</div></div>
     ${nMissing?`<div class="kpi-card" style="border-left:3px solid #94a3b8"><div class="kpi-label">Données manquantes</div><div class="kpi-value" style="color:#94a3b8">${nMissing}</div><div class="kpi-sub">cap = 0</div></div>`:''}`;
 }
@@ -2365,17 +2387,20 @@ function initTerritoire(t) {
   L.tileLayer(TILES,{attribution:TILES_ATTR,maxZoom:19}).addTo(m);
   terrMaps[t]=m;
 
-  // Légende (même logique que vue globale)
+  // Légende territoire : fill=opérateur, stroke=delta
   const leg = L.control({position:'bottomleft'});
   leg.onAdd = () => {
     const d = L.DomUtil.create('div','map-legend');
-    d.innerHTML = '<div class="legend-title">Remplissage = territoire</div>'
-      + `<div class="legend-row"><div class="legend-dot" style="background:${TERR_COLORS[t]};border-color:rgba(0,0,0,.15)"></div>${t} — ${TERR_LABELS[t]}</div>`
+    const TOP_OPS = [['PAPREC','#e74c3c'],['SUEZ','#0073b1'],['VEOLIA','#00a3e0'],['SEPUR','#7b2d8b'],['SCHROLL (REMONDIS)','#16a085'],['TRISELEC','#d35400']];
+    d.innerHTML = '<div class="legend-title">Remplissage = opérateur</div>'
+      + TOP_OPS.map(([op,c])=>`<div class="legend-row"><div class="legend-dot" style="background:${c};border-color:rgba(0,0,0,.15)"></div>${op}</div>`).join('')
+      + '<div class="legend-row"><div class="legend-dot" style="background:#94a3b8;border-color:rgba(0,0,0,.15)"></div>Autres opérateurs</div>'
       + '<div class="legend-sep"></div>'
       + '<div class="legend-title">Contour = delta capacité</div>'
-      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#059669;border-width:3px"></div>Capacité OK (nom ≥ régl)</div>'
-      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#dc2626;border-width:3px"></div>Sous-capacité (nom &lt; régl)</div>'
+      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#059669;border-width:3px"></div>Vide de tri potentiel (AP &gt; nominal)</div>'
+      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#dc2626;border-width:3px"></div>Surcapacité (nominal &gt; AP)</div>'
       + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#94a3b8;border-width:2px;border-style:dashed"></div>Données manquantes</div>'
+      + '<div class="legend-row"><div class="legend-dot" style="background:white;border-color:#dc2626;border-width:3.5px;border-style:dashed"></div>Contrat &lt; 3 ans</div>'
       + '<div class="legend-hint">&#9679; taille = capacité nominale</div>';
     return d;
   };
@@ -2437,6 +2462,7 @@ function getPipelineFiltered() {
   });
 }
 function renderPipelineKPIs(filtered) {
+  const veryUrgent = filtered.filter(s=>s.annee_fin_contrat && s.annee_fin_contrat <= 2026);
   const urgent = filtered.filter(s=>s.fin_contrat==='< 3 ans');
   const warning = filtered.filter(s=>s.fin_contrat==='Entre 3 et 5 ans');
   const safe = filtered.filter(s=>s.fin_contrat==='6 ans et +');
@@ -2444,8 +2470,10 @@ function renderPipelineKPIs(filtered) {
   const enSel = filtered.filter(s=>['1- En sélectivité','4- GO'].includes(s.selectivite));
   const urgCap = urgent.reduce((a,s)=>a+(s.cap_nominale||0),0);
   const warnCap = warning.reduce((a,s)=>a+(s.cap_nominale||0),0);
+  const veryUrgCap = veryUrgent.reduce((a,s)=>a+(s.cap_nominale||0),0);
   const noDate = filtered.filter(s=>!s.fin_contrat).length;
   document.getElementById('kpi-pipeline').innerHTML=`
+    ${veryUrgent.length ? `<div class="kpi-card" style="border-left:3px solid #7f1d1d;background:#fef2f2"><div class="kpi-label" style="color:#991b1b">&#9888; Contrats &lt; 1 an</div><div class="kpi-value" style="color:#7f1d1d;font-size:24px">${veryUrgent.length}</div><div class="kpi-sub" style="color:#991b1b">${fmtKt(veryUrgCap)}</div></div>` : ''}
     <div class="kpi-card" style="border-left:3px solid #dc2626"><div class="kpi-label">Contrats &lt;3 ans</div><div class="kpi-value" style="color:#dc2626">${urgent.length}</div><div class="kpi-sub">${fmtKt(urgCap)}</div></div>
     <div class="kpi-card" style="border-left:3px solid #d97706"><div class="kpi-label">Contrats 3-5 ans</div><div class="kpi-value" style="color:#d97706">${warning.length}</div><div class="kpi-sub">${fmtKt(warnCap)}</div></div>
     <div class="kpi-card" style="border-left:3px solid #059669"><div class="kpi-label">Contrats 6 ans+</div><div class="kpi-value" style="color:#059669">${safe.length}</div><div class="kpi-sub">sécurisés</div></div>
@@ -2467,8 +2495,10 @@ function applyPipelineFilter() {
     .map(s => {
       const fcc=echeanceColor(s), oc=opColor(s.operateur), tc=TERR_COLORS[s.territoire]||'#94a3b8';
       const nom=s.cap_nominale||0, pct=maxCap?Math.min(100,nom/maxCap*100):0;
+      const isVeryUrgent = s.annee_fin_contrat && s.annee_fin_contrat <= 2026;
+      const lt1Badge = isVeryUrgent ? `<span class="tag" style="background:#7f1d1d;color:#fff;border:1px solid #991b1b;font-weight:800">&lt; 1 an</span>` : '';
       const fcBadge=s.fin_contrat?`<span class="tag" style="background:${fcc}18;color:${fcc};border:1px solid ${fcc}30">${s.fin_contrat}</span>`:'';
-      const yrBadge=s.annee_fin_contrat?`<span class="tag" style="background:#f1f5f9;color:#475569">${s.annee_fin_contrat}</span>`:'';
+      const yrBadge=s.annee_fin_contrat?`<span class="tag" style="background:${isVeryUrgent?'#fef2f2':'#f1f5f9'};color:${isVeryUrgent?'#991b1b':'#475569'};font-weight:${isVeryUrgent?800:600}">${s.annee_fin_contrat}</span>`:'';
       const stBadge=s.statut_ao?`<span class="tag" style="background:${statutColor(s.statut_ao)}18;color:${statutColor(s.statut_ao)}">${s.statut_ao}</span>`:'';
       const click=s.lat?`onclick="selectOnMap(${s.id},'pipeline')" title="Localiser sur la carte"` :'';
       return `<div class="site-card" style="${s.lat?'cursor:pointer':''}" ${click}>
@@ -2476,7 +2506,7 @@ function applyPipelineFilter() {
         <div class="site-card-meta">
           <span class="tag" style="background:${tc}18;color:${tc}">${s.territoire}</span>
           <span class="tag" style="background:${oc}18;color:${oc}">${s.operateur||'?'}</span>
-          ${fcBadge}${yrBadge}${stBadge}
+          ${lt1Badge}${fcBadge}${yrBadge}${stBadge}
         </div>
         ${s.segment?`<div style="font-size:10px;color:#94a3b8;margin-bottom:3px">${s.segment}${s.client?' · '+s.client:''}</div>`:''}
         <div class="cap-bar-label">Nom: ${fmtN(nom)} | Régl: ${fmtN(s.cap_reglementaire||0)}</div>
