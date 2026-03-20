@@ -360,7 +360,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #
     </div>
     <div class="pill-group" id="global-pills-cap">
       <button class="pill active-pill" data-cap="" onclick="setGlobalPill(this,'global-pills-cap',applyGlobalFilter)">Tout statut</button>
-      <button class="pill pill-green" data-cap="ok" onclick="setGlobalPill(this,'global-pills-cap',applyGlobalFilter)">Vide de tri</button>
+      <button class="pill pill-green" data-cap="ok" onclick="setGlobalPill(this,'global-pills-cap',applyGlobalFilter)">AP &gt; nominal</button>
       <button class="pill pill-red" data-cap="over" onclick="setGlobalPill(this,'global-pills-cap',applyGlobalFilter)">Surcapacité</button>
       <button class="pill" data-cap="nodata" onclick="setGlobalPill(this,'global-pills-cap',applyGlobalFilter)">Sans données</button>
     </div>
@@ -995,7 +995,7 @@ function statutColor(st) {
 function deltaColor(s) {
   const nom = s.cap_nominale || 0, reg = s.cap_reglementaire || 0;
   if (nom === 0 || reg === 0) return '#94a3b8'; // donnees manquantes
-  if (reg > nom) return '#059669';  // vide de tri potentiel (AP > nominal)
+  if (reg > nom) return '#059669';  // AP > nominal
   return '#dc2626';                 // surcapacite (nominal > AP)
 }
 
@@ -1099,7 +1099,7 @@ function siteCardHTML(s, maxCap, mapCtx) {
 function popupHTML(s) {
   const delta = (s.cap_nominale || 0) - (s.cap_reglementaire || 0);
   const dc = delta < 0 ? 'delta-ok' : delta > 0 ? 'delta-over' : 'delta-zero';
-  const dl = delta < 0 ? `${fmtN(delta)} (vide de tri potentiel — AP > nominal)`
+  const dl = delta < 0 ? `${fmtN(delta)} (AP > nominal)`
     : delta > 0 ? `+${fmtN(delta)} (surcapacité — nominal > AP)` : 'Données manquantes / identiques';
   const fcc = echeanceColor(s);
   const fcBadge = s.fin_contrat ? `<span style="background:${fcc}18;color:${fcc};font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid ${fcc}40;vertical-align:middle">${s.fin_contrat}</span>` : '';
@@ -1380,7 +1380,7 @@ function renderGlobalKPIs(filtered) {
     <div class="kpi-card"><div class="kpi-label">Cap. nominale</div><div class="kpi-value kpi-green">${fmtKt(totalNom)}</div><div class="kpi-sub">t/an</div></div>
     <div class="kpi-card"><div class="kpi-label">Cap. réglementaire</div><div class="kpi-value kpi-orange">${fmtKt(totalReg)}</div><div class="kpi-sub">t/an</div></div>
     <div class="kpi-card"><div class="kpi-label">Delta global</div><div class="kpi-value ${delta<=0?'kpi-green':'kpi-red'}">${delta>0?'+':''}${fmtKt(delta)}</div><div class="kpi-sub">Nom &minus; Régl</div></div>
-    <div class="kpi-card"><div class="kpi-label">Vide de tri potentiel</div><div class="kpi-value" style="color:#059669">${nOK}</div><div class="kpi-sub">AP &gt; nominal</div></div>
+    <div class="kpi-card"><div class="kpi-label">AP &gt; nominal</div><div class="kpi-value" style="color:#059669">${nOK}</div><div class="kpi-sub">cap. réglementaire</div></div>
     <div class="kpi-card"><div class="kpi-label">Surcapacité</div><div class="kpi-value" style="color:#dc2626">${nOver}</div><div class="kpi-sub">nominal &gt; AP</div></div>
     <div class="kpi-card"><div class="kpi-label">Données manquantes</div><div class="kpi-value" style="color:#94a3b8">${nMissing}</div><div class="kpi-sub">cap = 0</div></div>
     <div class="kpi-card"><div class="kpi-label">Opérateurs</div><div class="kpi-value">${opCount}</div><div class="kpi-sub">acteurs</div></div>`;
@@ -1445,7 +1445,7 @@ function initGlobal() {
   legend.onAdd = () => {
     const d = L.DomUtil.create('div', 'map-legend');
     d.innerHTML = '<div class="legend-title">Remplissage = statut capacité</div>'
-      + '<div class="legend-row"><div class="legend-dot" style="background:#059669;border-color:rgba(0,0,0,0.15)"></div>Vide de tri (AP &gt; nominal)</div>'
+      + '<div class="legend-row"><div class="legend-dot" style="background:#059669;border-color:rgba(0,0,0,0.15)"></div>AP &gt; nominal</div>'
       + '<div class="legend-row"><div class="legend-dot" style="background:#dc2626;border-color:rgba(0,0,0,0.15)"></div>Surcapacité (nominal &gt; AP)</div>'
       + '<div class="legend-row"><div class="legend-dot" style="background:#94a3b8;border-color:rgba(0,0,0,0.15)"></div>Données manquantes</div>'
       + '<div class="legend-hint">&#9679; taille = capacité nominale</div>';
